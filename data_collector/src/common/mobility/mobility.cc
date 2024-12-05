@@ -6,18 +6,18 @@ using namespace omnetpp;
 Define_Module(Mobility);
 
 void Mobility::initialize()
-{
-    Object::initialize();
-
+{    Object::initialize();
 double speed = par("initialSpeed");
 double heading = par("initialHeading");
-unsigned int moveAnimationFPS = par("moveAnimationFPS");
 
-    speedScalar = Point(speed, 0);
-    moveHeading = Transform().rotate(heading);
+maxRange = par("maxRange");
 
-    moveTimer = new cMessage("moveTimer");
-    moveAnimationSPF = 1.0 / moveAnimationFPS;
+moveInterval = par("moveInterval");
+moveTimer = new cMessage("move");
+divertedMoveTimer = 0;
+
+horScalar = Point(speed * moveInterval, 0);
+verScalar = Point(0, speed * moveInterval);
 
     scheduleAt(0, moveTimer);
 }
@@ -25,19 +25,44 @@ unsigned int moveAnimationFPS = par("moveAnimationFPS");
 void Mobility::handleMessage(cMessage *msg)
 {
     if (msg == moveTimer)
-        move();
+        moveForward();
 }
 
-void Mobility::move()
+void Mobility::moveForward()
 {
-    this->wrapIfOutside(speedScalar);
-    cCanvas* canvas = getSystemModule()->getCanvas();
-    cDisplayString& displayStr = getDisplayString();
-    const Point& location = this->getLocation();
+Point velocity;
+double ratio = 1;
 
-        displayStr.setTagArg("p", 0, location.x);
-        displayStr.setTagArg("p", 1, location.y);
-        displayStr.setTagArg("t", 0, location.x);
+    if (divertedMoveTimer >= 0)
+    {
+    double relativeRatio;
 
-    scheduleAfter(moveAnimationSPF, moveTimer);
+        if (divertedMoveTimer <= moveInterval + 1e-9)
+        {
+            ratio = divertedMoveTimer / moveInterval;
+            divertedMoveTimer = -1;
+        } else
+            divertedMoveTimer -= moveInterval;
+
+        velocity = verScalar * ratio;
+        if ((relativeRatio = wrapIfOutside(velocity)) < 1)
+        {
+            ratio = ratio * relativeRatio;
+            ++ endType;
+            divertedMoveTimer = -1;
+        }
+    } else
+    {
+        velocity = horScalar;
+        if ((ratio = wrapIfOutside(velocity)) < 1)
+        {
+            divertedMoveTimer = fabs(
+                    (1.5 * maxRange) / (horScalar.x / moveInterval));
+
+            horScalar.x = -horScalar.x;
+        }
+    }
+
+    if(endType == 2) return;
+    scheduleAfter(moveInterval * ratio, moveTimer);
 }

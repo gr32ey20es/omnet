@@ -6,19 +6,23 @@ using namespace omnetpp;
 class Mobility : public Object
 {
     private:
-        Point speedScalar;
-        Transform moveHeading;
+        Point horScalar;
+        Point verScalar;
 
     private:
-        Point velocityPF;
+        double moveInterval;
         cMessage* moveTimer;
-        double moveAnimationSPF;
+        double divertedMoveTimer;
+
+    protected:
+        double maxRange;
+        int endType = 0;
 
     protected:
         virtual void initialize() override;
-        virtual void handleMessage(cMessage *msg) override;
+        virtual void handleMessage(cMessage*) override;
 
     protected:
-        virtual void move();
+        virtual void moveForward();
 };
 

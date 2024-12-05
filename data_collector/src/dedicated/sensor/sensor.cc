@@ -3,50 +3,52 @@
 Define_Module(Sensor);
 
 void Sensor::initialize()
-{
-    Object::initialize();
-
-cModule* collModule = getParentModule()->getSubmodule("collector");
-
-id = 10;    // @Override
+{    Object::initialize();
+id = getIndex();
 maxRange = par("maxRange");
 sendInterval = par("sendInterval");
 
+cModule* collModule = getParentModule()->getSubmodule("collector");
+sendTimer = new cMessage();
 collector = check_and_cast<Collector*>(collModule);
 collGateDirectIn = collModule->gate("gateDirectIn");
-sendTimer = new cMessage();
 
-    scheduleAt(0, this->sendTimer);
+//    displayString();
+    scheduleAt(0, sendTimer);
 }
-
 void Sensor::handleMessage(cMessage* msg)
 {
-double range;
-
-    if(msg == this->sendTimer)
+    if(msg == sendTimer)
     {
-        range = this->distanceTo(collector->getLocation());
-        if(range < this->maxRange)
+    double range = distanceTo(collector->getLocation());
+
+        if(range < maxRange)
         {
             generateData();
             sendData();
         }
 
-        scheduleAfter(this->sendInterval, this->sendTimer);
+        scheduleAfter(sendInterval, sendTimer);
     }
+}
+void Sensor::displayString() const
+{   Object::displayString();
+cDisplayString& displayStr = getDisplayString();
+
+    displayStr.setTagArg("r", 0, maxRange);
 }
 
 
 void Sensor::generateData()
 {
-    this->data = uniform(1, 10);
+    data = id * 10;
 }
-
 void Sensor::sendData()
 {
-cMessage* packet = new cMessage(
-    std::to_string(this->data).c_str()
-);
+Datagram* packet = new Datagram();
 
-    sendDirect(packet, this->collGateDirectIn);
+    packet->setSenderID(id);
+    packet->setData(data);
+
+    sendDirect(packet, collGateDirectIn);
 }

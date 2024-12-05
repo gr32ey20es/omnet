@@ -11,12 +11,13 @@ class Object : public cSimpleModule
 
     protected:
         virtual void initialize() override;
+        virtual void displayString() const;
 
     public:
-        const Point& getLocation() const;
-        const Rectangle& getBoundRect() const;
+        virtual const Point& getLocation() const;
+        virtual const Rectangle& getBoundRect() const;
 
     protected:
-        double distanceTo(const Point&) const;
-        double wrapIfOutside(const Point& vector);
+        virtual double distanceTo(const Point&) const;
+        virtual double wrapIfOutside(const Point& vector);
 };
