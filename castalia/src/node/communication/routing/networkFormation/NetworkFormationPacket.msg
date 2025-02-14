@@ -8,6 +8,7 @@ enum networkFormationPacketDef {
 	NETFORMATION_DATA_PACKET = 0;
 	NETFORMATION_CLUSTER_HEAD_SETUP_PACKET = 1;
 	NETFORMATION_CLUSTER_TOPO_SETUP_PACKET = 2;
+	NETFORMATION_CLUSTER_JOINING_PACKET = 3;
 } 
 
 packet NetworkFormationPacket extends RoutingPacket {
@@ -17,5 +18,8 @@ packet NetworkFormationPacket extends RoutingPacket {
 	unsigned int sourceNum;
 	// Payload
     unsigned int clusterHeads[];
+    
+    // Joining only
+    unsigned int destinationNum;
 }
 

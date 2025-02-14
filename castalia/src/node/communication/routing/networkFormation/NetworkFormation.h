@@ -19,18 +19,22 @@ class NetworkFormation: public VirtualRouting
     unsigned int hopLimit;
     unsigned int sequenceNumberLimit;
 
+    bool worker[101];
+
   protected:
     void startup (void);
     void finish (void);
 
     void sendClusterHeadSetupPacket (void);
     void sendClusterTopoSetupPacket (void);
+    void sendClusterJoiningPacket (void);
 
     void fromApplicationLayer (cPacket *, const char *);
     void fromMacLayer (cPacket *, int, double, double);
 
     void handleClusterHeadSetupPacket (NetworkFormationPacket *);
     void handleClusterTopoSetupPacket (NetworkFormationPacket *);
+    void handleClusterJoiningPacket (NetworkFormationPacket *);
 };
 
 #endif  //NETWORKFORMATIONMODULE

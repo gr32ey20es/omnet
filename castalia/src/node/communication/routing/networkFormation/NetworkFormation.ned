@@ -8,7 +8,7 @@ simple NetworkFormation like node.communication.routing.iRouting {
 	int netDataFrameOverhead = default (14);			// bytes
 	
 	// customization
-	int hopLimit = default (15);						// 4-bit
+	int hopLimit = default (7);							// 3-bit
 	int sequenceNumberLimit = default (4294967295);		// 4-byte
 	
  gates:

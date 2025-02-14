@@ -5,6 +5,7 @@ Define_Module (NetworkFormation);
 void
 NetworkFormation::startup (void)
 {
+  unsigned int i;
   cModule *appModule, *nodeModule;
 
   nodeModule = getParentModule ()->getParentModule ();
@@ -24,6 +25,9 @@ NetworkFormation::startup (void)
   hopLimit = (unsigned int) par ("hopLimit");
   sequenceNumberLimit = (unsigned int) par ("sequenceNumberLimit");
 
+  for (i = 0; i < 101; ++i)
+    worker[i] = false;
+
   if (isSink)
     sendClusterHeadSetupPacket ();
 }
@@ -35,6 +39,15 @@ NetworkFormation::finish (void)
            << ", isSink: " << isSink
            << ", clusterHead: " << clusterHead
            << ", transitionNode: " << transitionNode;
+
+  if (self == clusterHead)
+    {
+      trace () << "\n[";
+      for (unsigned int i = 0; i < 101; ++i)
+        if (worker[i] == true)
+          trace () << i << ", ";
+      trace () << "]";
+    }
 }
 
 void
@@ -47,7 +60,6 @@ NetworkFormation::sendClusterHeadSetupPacket (void)
       "NetworkFormation's Cluster Head Setup Packet", NETWORK_LAYER_PACKET);
 
   setupPkt->setSource (SELF_NETWORK_ADDRESS);
-  setupPkt->setSourceNum (self);
   setupPkt->setDestination (BROADCAST_NETWORK_ADDRESS);
   setupPkt->setSequenceNumber (++cHeadSetupSeqNum);
 
@@ -55,6 +67,7 @@ NetworkFormation::sendClusterHeadSetupPacket (void)
   setupPkt->setNetworkFormationPacketKind (
       NETFORMATION_CLUSTER_HEAD_SETUP_PACKET);
   setupPkt->setNetworkFormationPacketHops (hopLimit);
+  setupPkt->setSourceNum (self);
 
   // Cluster Head(s)
   clusterHeads = new unsigned int[] {22, 27, 72, 77};
@@ -81,7 +94,6 @@ NetworkFormation::sendClusterTopoSetupPacket (void)
       "NetworkFormation's Cluster Topo Setup Packet", NETWORK_LAYER_PACKET);
 
   setupPkt->setSource (SELF_NETWORK_ADDRESS);
-  setupPkt->setSourceNum (self);
   setupPkt->setDestination (BROADCAST_NETWORK_ADDRESS);
   setupPkt->setSequenceNumber (cTopoSetupSeqNum);
 
@@ -89,10 +101,34 @@ NetworkFormation::sendClusterTopoSetupPacket (void)
   setupPkt->setNetworkFormationPacketKind (
       NETFORMATION_CLUSTER_TOPO_SETUP_PACKET);
   setupPkt->setNetworkFormationPacketHops (hopLimit);
+  setupPkt->setSourceNum (self);
 
   // Cluster Head
   setupPkt->setClusterHeadsArraySize (1);
   setupPkt->setClusterHeads (0, clusterHead);
+
+  toMacLayer (setupPkt, BROADCAST_MAC_ADDRESS);
+}
+
+void
+NetworkFormation::sendClusterJoiningPacket (void)
+{
+  if (clusterHead < 0)
+    return;
+
+  NetworkFormationPacket *setupPkt;
+
+  setupPkt = new NetworkFormationPacket (
+      "NetworkFormation's Cluster Joining Packet", NETWORK_LAYER_PACKET);
+
+  setupPkt->setSource (SELF_NETWORK_ADDRESS);
+  setupPkt->setDestination (BROADCAST_NETWORK_ADDRESS);
+
+  setupPkt->setNetworkFormationPacketKind (
+      NETFORMATION_CLUSTER_JOINING_PACKET);
+  setupPkt->setNetworkFormationPacketHops (hopLimit);
+  setupPkt->setSourceNum (self);
+  setupPkt->setDestinationNum (transitionNode);
 
   toMacLayer (setupPkt, BROADCAST_MAC_ADDRESS);
 }
@@ -128,6 +164,10 @@ NetworkFormation::fromMacLayer (cPacket* pkt, int srcMacAddress,
       case NETFORMATION_CLUSTER_TOPO_SETUP_PACKET:
         handleClusterTopoSetupPacket (netPacket);
         break;
+
+      case NETFORMATION_CLUSTER_JOINING_PACKET:
+        handleClusterJoiningPacket (netPacket);
+        break;
     }
 }
 
@@ -152,6 +192,8 @@ NetworkFormation::handleClusterHeadSetupPacket (
   dupPacket->setSource (SELF_NETWORK_ADDRESS);
   dupPacket->setNetworkFormationPacketHops (packetHops - 1);
 
+  toMacLayer (dupPacket, BROADCAST_MAC_ADDRESS);
+
   // Sending cluster topo setup packet if node is cluster head
   isClusterHead = false;
   n = cHeadSetupPkt->getClusterHeadsArraySize ();
@@ -172,8 +214,6 @@ NetworkFormation::handleClusterHeadSetupPacket (
       if (!isSendedCTopoSetup || cTopoSetupSeqNum != cHeadSetupSeqNum)
         sendClusterTopoSetupPacket ();
     }
-
-  toMacLayer (dupPacket, BROADCAST_MAC_ADDRESS);
 }
 
 void
@@ -199,10 +239,37 @@ NetworkFormation::handleClusterTopoSetupPacket (
   clusterHead = cTopoSetupPkt->getClusterHeads (0);
   transitionNode = cTopoSetupPkt->getSourceNum ();
 
+  // Forwarding
   dupPacket = cTopoSetupPkt->dup ();
   dupPacket->setSource (SELF_NETWORK_ADDRESS);
   dupPacket->setSourceNum (self);
   dupPacket->setNetworkFormationPacketHops (packetHops - 1);
 
   toMacLayer (dupPacket, BROADCAST_MAC_ADDRESS);
+
+  // Sending Joining Packet
+  sendClusterJoiningPacket();
+}
+
+void
+NetworkFormation::handleClusterJoiningPacket (
+    NetworkFormationPacket *cJoiningPkt)
+{
+  unsigned int transitionNodePkt, sourceNum;
+  NetworkFormationPacket *dupPacket;
+
+  sourceNum = cJoiningPkt->getSourceNum ();
+  transitionNodePkt = cJoiningPkt->getDestinationNum ();
+
+  if (self == transitionNodePkt)
+    {
+      if (self == clusterHead)
+          worker[sourceNum] = true;
+      else
+        {
+          dupPacket = cJoiningPkt->dup ();
+          dupPacket->setDestinationNum (transitionNode);
+          toMacLayer (dupPacket, BROADCAST_MAC_ADDRESS);
+        }
+    }
 }
