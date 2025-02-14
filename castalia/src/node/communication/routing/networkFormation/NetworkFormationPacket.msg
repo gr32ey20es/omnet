@@ -14,7 +14,7 @@ packet NetworkFormationPacket extends RoutingPacket {
     // Header
 	unsigned int networkFormationPacketKind enum (networkFormationPacketDef);	// 1 byte
 	unsigned int networkFormationPacketHops;									// 4 bits
-	unsigned int networkFormationSequenceNum;									// 4 bytes
+	unsigned int sourceNum;
 	// Payload
     unsigned int clusterHeads[];
 }
